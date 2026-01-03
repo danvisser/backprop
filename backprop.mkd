@@ -1,0 +1,18 @@
+# General back‑propagation formulas (for any layer i)
+
+Given the forward equations
+    z_i = W_i a_(i−1) + b_i
+    a_i = f_i(z_i)
+
+and an incoming gradient  dL/da_i  from the layer above,
+the backward computations are:
+
+1. Through the activation
+       dL/dz_i = (dL/da_i) ⊙ f_i'(z_i)
+
+2. Parameter gradients
+       dL/dW_i = (dL/dz_i) a_(i−1)ᵀ
+       dL/db_i = dL/dz_i             
+
+3. Propagate gradient to previous layer
+       dL/da_(i−1) = W_iᵀ (dL/dz_i)
