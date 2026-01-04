@@ -80,7 +80,7 @@ class NeuralNetwork:
         dw, db = [], []
         n_layers = len(self.layers)
         batch_size = target.shape[0]
-        dc_da = a[-1] - target
+        dl_da = a[-1] - target
 
         for i in range(1, n_layers + 1):
             layer = self.layers[-i]
@@ -88,19 +88,19 @@ class NeuralNetwork:
             dz_da = layer.weights
             dz_dw = a[-i - 1]
 
-            dc_dz = dc_da * da_dz
+            dl_dz = dl_da * da_dz
 
-            dw.append(dc_dz.T @ dz_dw / batch_size)
-            db.append(np.mean(dc_dz, axis=0))
+            dw.append(dl_dz.T @ dz_dw / batch_size)
+            db.append(np.mean(dl_dz, axis=0))
 
-            dc_da = dz_da.T @ dc_dz
+            dl_da = dl_dz @ dz_da
 
         return dw[::-1], db[::-1]
 
     def compute_loss(self, X, y):
         total_loss = 0.0
         for x, target in zip(X, y):
-            y_pred, _ = self.forward(x)
+            y_pred, _ = self.forward(x.reshape(1, -1))
             y_pred = y_pred[-1]
             total_loss -= np.sum(target * np.log(y_pred + 1e-15))
         return total_loss / len(X)
