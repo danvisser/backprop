@@ -1,0 +1,189 @@
+# Back-propagation
+
+The goal when training neural networks is to have the network make as many correct predictions (i.e., as few errors) as possible. For the network to "learn" how to improve its predictions, it must: measure how wrong it was (using a loss function); determine how the current network parameters influence this loss (via backpropagation); and finally, update those parameters to minimize the cost function (using gradient descent). The cost function is the average loss over all training examples.
+
+Although the loss function and gradient descent (the methods used to evaluate prediction error and update the network, respectively) are important topics in their own right, their formulas are relatively straightforward compared to the intermediate step: backpropagation, which will be the focus here.
+
+## 1. Forward Pass: How the network predicts
+
+<div style="text-align:center;">
+  <img src="nn.jpg" style="width:66%;">
+</div>
+
+The network is made of layers of fully connected "neurons". The output (activation, `a`) of a given neuron *j* in layer *i*, is given by:
+
+```
+z(i,j) = Σ_k [W(i,j,k) · a(i-1,k)] + b(i,j)
+a(i,j) = f(z(i,j))
+```
+
+where,:
+- `z(i,j)` is the pre-activation output
+- `a(i,j)` is the post-activation output
+- `W(i,j,k)` is the weight connecting from neuron k from layer i-1
+- `b(i,j)` is the bias 
+- `f(i,j)` is the activation function (ReLU for hidden layers, softmax for output layer)
+- The summation `Σ_k` is over all neurons k in the previous layer (i-1)
+
+In matrix notation, this can be written more compactly as:
+```
+z_i = W_i · a_(i-1) + b_i
+a_i = f_i(z_i)
+```
+where the dot product `W_i · a_(i-1)` implicitly includes the summation over all inputs.
+
+## 2. Computing Parameter Gradients: The Chain Rule   
+
+The Chain Rule is a result in calculus stating that for some composite function (e.g., `f(g(h(x)))`), its derivative is the composition (matrix product) of their derivatives (e.g., `df/dx = df/dg · dg/dh · dh/dx`).
+
+The Chain Rule can be intuitively understood as a small tweak to one input variable causing its influence to cascade - as the output of one function shifts slightly, that change flows through subsequent functions, with each effect combining along this chain of dependent derivatives.
+
+Thus, to understand how a parameter of a given neuron contributes to the prediction error (loss, `L`), we need to compute the partial derivatives of that neuron's weights and bias. That is, to compute the gradients for neuron *j* in layer *i*, we need `δL/δw(i,j)` and `δL/δb(i,j)`.  
+
+To nicely match the variable names with those used in the code, all partial derivatives will be referenced using simple text variables - for example: `dl_dw` (= `δL/δw(i,j)`).
+
+### The Gradients dl_dw and dl_db
+---
+
+To compute how a weight `w` influences the loss `L`, we need to trace the path from `w` to `L` through the network. The weight `w` affects the pre-activation `z`, which affects the post-activation `a`, which in turn affects the loss `L` (potentially through many downstream layers).
+
+By the Chain Rule, the gradient `dl_dw` is the product of derivatives along this path:
+
+```
+dl_dw = (∂L/∂a) · (∂a/∂z) · (∂z/∂w)
+```
+
+However, `a` is a vector (the activations of all neurons in the layer), and each activation `a_j` may influence the loss through different downstream paths. The term `∂L/∂a` is actually a vector of partial derivatives `[∂L/∂a_1, ∂L/∂a_2, ..., ∂L/∂a_n]`, where each `∂L/∂a_j` represents the total influence of activation `a_j` on the loss, accounting for *all* downstream layers and paths.
+
+Similarly, `∂a/∂z` is a vector `[∂a_1/∂z_1, ∂a_2/∂z_2, ..., ∂a_n/∂z_n]` where each element is the derivative of the activation function at that neuron. Since the activation function is applied element-wise, `∂a_i/∂z_j = 0` when `i ≠ j`, making `∂a/∂z` a diagonal vector (or equivalently, an element-wise operation).
+
+When we multiply `(∂L/∂a) · (∂a/∂z)`, we're computing how each pre-activation `z_j` influences the loss through its corresponding activation `a_j`. Since both are vectors and the activation function is element-wise, this multiplication must be element-wise (Hadamard product, `⊙`):
+
+```
+dl_dz = dl_da ⊙ da_dz
+```
+
+`dl_dz` shows how each pre-activation `z_i` influences the loss. Each weight `W_{i,j}` only affects its own neuron `z_i`, with influence equal to the input `a_j` (`∂z_i/∂W_{i,j} = a_j`). To get the weight gradients, we pair each neuron’s loss sensitivity (`dl_dz[i]`) with its input (`a_j`); thus, we transpose `dl_dz` such that their product gives each weight’s gradient.
+
+```
+dl_dw = (dl_da ⊙ da_dz).T @ dz_dw     
+```
+
+where:
+- `⊙` denotes element-wise multiplication (Hadamard product)
+- `@` denotes matrix multiplication
+- `.T` denotes matrix transpose
+
+The influence for bias can be understood in the exact same way, and hence, follows the exact same form:
+
+```
+dl_db = (dl_da ⊙ da_dz).T @ dz_db     
+```
+
+## 3. Backpropogation: The Chain Rule in Pactice  
+
+From above, we see that all we need to claculate the influnce of a given layer, *i*'s parameters on the loss (`dl_dw` and `dl_db`), are the following:
+- `dl_da(i)`
+- `da_dz(i)` 
+- `dz_dw(i)` 
+- `dz_db(i)` 
+
+We already have formulas for `z` in terms of `w` and `b`: `z_i = W_i · a_(i-1) + b_i`, and `a` in terms of some activation function `a(i) = f(z(i))`, so what we still need to kknow is this `f(z)`, and the loss function itself, `L`
+
+### The Activation Function
+---
+
+The activation function `f(z)` transforms the pre-activation output `z` into the post-activation output `a`. For hidden layers, we use **ReLU** (Rectified Linear Unit):
+
+```
+a = max(0, z)
+```
+
+For the output layer, we use **softmax** to convert the pre-activation values into a probability distribution:
+
+```
+a_k = exp(z_k) / Σ_j exp(z_j)
+```
+
+
+### The Loss Function
+--- 
+The loss function measures the error for a single example. The cost function (used during training) is the average loss over all examples in the batch. For this example, I use **cross-entropy loss** for multi-class classification:
+
+```
+L = -Σ_k (y_k * log(p_k))
+```
+
+where `y` is the one-hot encoded target vector and `p` is the predicted probability distribution (softmax output).
+
+### Breaking down each term 
+---
+- **da_dz**:
+  - **Output layer (softmax)**: 
+    
+    From `a_k = exp(z_k) / Σ_j exp(z_j)`, differentiating gives:
+    - `∂a_i/∂z_i = a_i · (1 - a_i)` (when k = i)
+    - `∂a_k/∂z_i = -a_k · a_i` (when k ≠ i)
+    
+    This is a full Jacobian matrix. However, when combined with cross-entropy loss in the chain rule, the intermediate terms cancel out, so we can treat `da_dz = 1` in practice.
+    
+  - **Hidden layer (ReLU)**: 
+    
+    From `a = max(0, z)`, the derivative is `da_dz = 1` if `z > 0`, else `0`. Or simply: `da_dz = (z > 0)`
+
+- **dl_da**:
+  - **Output layer**: 
+    
+    From `L = -Σ_k (y_k * log(p_k))`, differentiating gives `∂L/∂p_k = -y_k / p_k`, so `dl_da = -y / p`.
+    
+  - **Hidden layer**: 
+    
+    The gradient flows from the layer above. Since `z_(i+1) = W_(i+1) · a_i + b_(i+1)`, we have `dl_da_i = W_(i+1).T @ dl_dz_(i+1)`.
+
+- **dl_dz**:
+  - **Output layer**: 
+    
+    Using the chain rule: `dl_dz = dl_da @ da_dz = (-y/p) @ da_dz`
+    
+    Expanding `∂L/∂z_i = Σ_k (∂L/∂p_k) · (∂p_k/∂z_i)` and substituting:
+    ```
+    ∂L/∂z_i = (-y_i/p_i) · p_i · (1 - p_i) + Σ_{k≠i} (-y_k/p_k) · (-p_k · p_i)
+             = -y_i + p_i · Σ_k y_k
+             = p_i - y_i  (since y is one-hot, Σ_k y_k = 1)
+    ```
+    
+    Therefore: `dl_dz = p - y`
+    
+  - **Hidden layer**: 
+    
+    Using the chain rule: `dl_dz = dl_da ⊙ da_dz = (W_(i+1).T @ dl_dz_(i+1)) ⊙ (z > 0)`
+
+- **dz_dw**:
+  - **All layers**: `dz_dw = a_(i-1)` (the input to this layer, shape: batch_size × input_size)
+
+- **dz_da**:
+  - **All layers**: `dz_dw = 1` (the input to this layer, shape: input_size)
+
+### Putting it all together
+---
+Combining all the terms above, we can now compute the gradients `dl_dw` and `dl_db` for each layer using the chain rule formulas.
+
+**For the output layer:**
+
+Substituting `dl_da = a_output - target`, `da_dz = 1`, `dz_dw = a_(i-1)`, and `dz_db = 1` into the chain rule:
+
+```
+dl_dw = ((a_output - target) ⊙ 1).T @ a_(i-1) = (a_output - target).T @ a_(i-1)
+dl_db = ((a_output - target) ⊙ 1).T @ 1 = mean(a_output - target, axis=0)
+```
+
+**For hidden layers:**
+
+Substituting `dl_da = W_(i+1).T @ (dl_da_(i+1) ⊙ da_dz_(i+1))`, `da_dz = (z > 0)`, `dz_dw = a_(i-1)`, and `dz_db = 1` into the chain rule:
+
+```
+dl_dw = ((W_(i+1).T @ (dl_da_(i+1) ⊙ da_dz_(i+1))) ⊙ (z > 0)).T @ a_(i-1)
+dl_db = ((W_(i+1).T @ (dl_da_(i+1) ⊙ da_dz_(i+1))) ⊙ (z > 0)).T @ 1 = mean((W_(i+1).T @ (dl_da_(i+1) ⊙ da_dz_(i+1))) ⊙ (z > 0), axis=0)
+```
+
+Note that `dl_dw` is averaged over the batch in the implementation (divided by `batch_size`), while `dl_db` uses `mean()` to average over the batch dimension.
