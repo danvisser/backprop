@@ -1,6 +1,6 @@
 # Backpropagation
 
-The goal when training neural networks is to have the network make as many correct predictions (i.e., as few errors) as possible. For the network to "learn" how to improve its predictions, it must: measure how wrong it was (using a loss function); determine how the current network parameters influence this loss (via backpropagation); and finally, update those parameters to minimize the cost function (using gradient descent). The cost function is the average loss over all training examples.
+When training a neural network, the goal is to teach the network to make as many correct predictions (i.e., as few errors) as possible. For the network to "learn" how to improve its predictions, it must: measure how wrong it was (using a loss function); determine how the current network parameters influence this loss (via backpropagation); and finally, update those parameters to minimize the cost function (using gradient descent). The cost function is the average loss over all training examples.
 
 Although the loss function and gradient descent (the methods used to evaluate prediction error and update the network, respectively) are important topics in their own right, their formulas are relatively straightforward compared to the intermediate step: backpropagation, which will be the focus here.
 
