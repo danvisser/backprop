@@ -16,18 +16,18 @@ class Layer:
 
     def forward(self, inputs):
         z = inputs @ self.weights.T + self.bias
-        a = self.softmax(z) if self.layer_type == LayerType.OUTPUT else self.activation(z)
+        a = self.activation(z)
         return z, a
 
-    def softmax(self, z):
+    def activation(self, x):
+        return self._relu(x) if self.layer_type == LayerType.HIDDEN else self._softmax(x)
+
+    def _softmax(self, z):
         exps = np.exp(z - np.max(z, axis=1, keepdims=True))
         return exps / np.sum(exps, axis=1, keepdims=True)
 
-    def activation(self, x):
-        return np.maximum(0, x)
-
-    def activation_derivative(self, z):
-        return np.ones_like(z) if self.layer_type == LayerType.OUTPUT else (z > 0).astype(float)
+    def _relu(self, z):
+        return np.maximum(0, z)
 
 
 class NeuralNetwork:
@@ -84,7 +84,7 @@ class NeuralNetwork:
 
         for i in range(1, n_layers + 1):
             layer = self.layers[-i]
-            da_dz = layer.activation_derivative(z[-i])
+            da_dz = (z[-i] > 0).astype(float)
             dz_da = layer.weights
             dz_dw = a[-i - 1]
 
